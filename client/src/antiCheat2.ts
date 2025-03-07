@@ -1,41 +1,45 @@
-function detectAimbot(): void {
-    const mouseMovementThreshold: number = 0.1; // Example threshold for precision
-    let lastMousePosition: { x: number; y: number } = { x: 0, y: 0 };
-    let suspiciousMovements: number = 0;
+export class AntiCheat {
+  private lastMousePosition: { x: number; y: number } = { x: 0, y: 0 };
+  private suspiciousMovements: number = 0;
+  private readonly mouseMovementThreshold: number = 0.1; // Example threshold
 
-    document.addEventListener('mousemove', (event: MouseEvent) => {
+  detectAimbot(): void {
+    document.addEventListener("mousemove", (event: MouseEvent) => {
       const currentMousePosition: { x: number; y: number } = {
         x: event.clientX,
         y: event.clientY,
       };
       const deltaX: number = Math.abs(
-        currentMousePosition.x - lastMousePosition.x,
+        currentMousePosition.x - this.lastMousePosition.x,
       );
       const deltaY: number = Math.abs(
-        currentMousePosition.y - lastMousePosition.y,
+        currentMousePosition.y - this.lastMousePosition.y,
       );
 
-      if (deltaX < mouseMovementThreshold && deltaY < mouseMovementThreshold) {
-        suspiciousMovements++;
-        if (suspiciousMovements > 10) {
-          console.log('Aimbot detected! Kicking player...');
-          kickPlayer();
+      if (
+        deltaX < this.mouseMovementThreshold &&
+        deltaY < this.mouseMovementThreshold
+      ) {
+        this.suspiciousMovements++;
+        if (this.suspiciousMovements > 10) {
+          console.log("Aimbot detected! Kicking player...");
+          this.kickPlayer();
         }
       } else {
-        suspiciousMovements = 0;
+        this.suspiciousMovements = 0;
       }
 
-      lastMousePosition = currentMousePosition;
+      this.lastMousePosition = currentMousePosition;
     });
-}
+  }
 
-function kickPlayer(): void {
-    alert('You have been kicked from the game for suspected aimbot usage.');
+  kickPlayer(): void {
+    alert("You have been kicked from the game for suspected aimbot usage.");
     // Additional logic to remove the player here
+  }
+
+  initAntiCheat(): void {
+    this.detectAimbot();
+  }
 }
 
-function initAntiCheat(): void {
-    detectAimbot();
-}
-
-initAntiCheat();

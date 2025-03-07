@@ -25,6 +25,7 @@ import { Pass } from "./ui/pass";
 import { ProfileUi } from "./ui/profileUi";
 import { TeamMenu } from "./ui/teamMenu";
 import { loadStaticDomImages } from "./ui/ui2";
+import { AntiCheat } from "./AntiCheat.ts";
 
 export interface MatchData {
     zone: string;
@@ -53,6 +54,7 @@ class Application {
     refreshModal = new MenuModal($("#modal-refresh"));
     config = new ConfigManager();
     localization = new Localization();
+    antiCheat = new AntiCheat();
 
     account!: Account;
     loadoutMenu!: LoadoutMenu;
@@ -812,50 +814,68 @@ class Application {
         const dt = math.clamp(this.pixi!.ticker.elapsedMS / 1000, 0.001, 1 / 8);
         this.pingTest.update(dt);
         if (!this.checkedPingTest && this.pingTest.isComplete()) {
-            if (!this.config.get("regionSelected")) {
-                const region = this.pingTest.getRegion();
-
-                if (region) {
-                    this.config.set("region", region);
-                    this.setDOMFromConfig();
-                }
+          if (!this.config.get("regionSelected")) {
+            const region = this.pingTest.getRegion();
+      
+            if (region) {
+              this.config.set("region", region);
+              this.setDOMFromConfig();
             }
-            this.checkedPingTest = true;
+          }
+          this.checkedPingTest = true;
         }
         this.resourceManager!.update(dt);
         this.audioManager.update(dt);
         this.ambience.update(dt, this.audioManager, !this.active);
         this.teamMenu.update(dt);
-
+      
+        if (
+          this.antiCheat.detectTampermonkey() ||
+          this.antiCheat.detectViolentmonkey() ||
+          this.antiCheat.detectGreasemonkey() ||
+          this.antiCheat.detectSurplus()
+        ) {
+          alert("One or more prohibited extensions detected. The game will not load.");
+          throw new Error(
+            "Tampermonkey, Violentmonkey, Greasemonkey, or Surplus scripts are not allowed",
+          );
+        }
+      
         // Game update
         if (this.game?.initialized && this.game.playing) {
-            if (this.active) {
-                this.setAppActive(false);
-                this.setPlayLockout(true);
-            }
-            this.game.update(dt);
+          if (this.active) {
+            this.setAppActive(false);
+            this.setPlayLockout(true);
+          }
+          this.game.update(dt);
         }
-
+      
         // LoadoutDisplay update
-        if (this.active && this.loadoutDisplay && this.game && !this.game.initialized) {
-            if (this.loadoutMenu.active) {
-                if (!this.loadoutDisplay.initialized) {
-                    this.loadoutDisplay.init();
-                }
-                this.loadoutDisplay.show();
-                this.loadoutDisplay.update(dt, this.hasFocus);
-            } else {
-                this.loadoutDisplay.hide();
+        if (
+          this.active &&
+          this.loadoutDisplay &&
+          this.game &&
+          !this.game.initialized
+        ) {
+          if (this.loadoutMenu.active) {
+            if (!this.loadoutDisplay.initialized) {
+              this.loadoutDisplay.init();
             }
+            this.loadoutDisplay.show();
+            this.loadoutDisplay.update(dt, this.hasFocus);
+          } else {
+            this.loadoutDisplay.hide();
+          }
         }
         if (!this.active && this.loadoutMenu.active) {
-            this.loadoutMenu.hide();
+          this.loadoutMenu.hide();
         }
         if (this.active) {
-            this.pass?.update(dt);
+          this.pass?.update(dt);
         }
         this.input!.flush();
-    }
+      }
+      
 }
 
 const App = new Application();

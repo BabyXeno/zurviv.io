@@ -1,51 +1,27 @@
-(() => {
+export class AntiCheat {
   // ----- Configuration -----
-  const SMOOTHING_WINDOW: number = 1000;
-  const JERK_THRESHOLD: number = 50000;
-  const SNAP_THRESHOLD: number = 2.0;
-  const REACTION_TIME_THRESHOLD: number = 100;
-  const WEIGHT_SMOOTHING: number = 0.2;
-  const WEIGHT_SNAP: number = 0.2;
-  const WEIGHT_REACTION: number = 0.1;
-  const WEIGHT_TRAJECTORY: number = 0.5;
-  const TRAJECTORY_DEVIATION_THRESHOLD: number = 50;
-  const LAG_COMPENSATION_TIME: number = 100;
-  const FLICK_TIME_WINDOW: number = 150;
-  const SUSPICIOUS_SCORE_THRESHOLD: number = 0.75;
+  private readonly SMOOTHING_WINDOW: number = 1000;
+  private readonly JERK_THRESHOLD: number = 50000;
+  private readonly SNAP_THRESHOLD: number = 2.0;
+  private readonly REACTION_TIME_THRESHOLD: number = 100;
+  private readonly WEIGHT_SMOOTHING: number = 0.2;
+  private readonly WEIGHT_SNAP: number = 0.2;
+  private readonly WEIGHT_REACTION: number = 0.1;
+  private readonly WEIGHT_TRAJECTORY: number = 0.5;
+  private readonly TRAJECTORY_DEVIATION_THRESHOLD: number = 50;
+  private readonly LAG_COMPENSATION_TIME: number = 100;
+  private readonly FLICK_TIME_WINDOW: number = 150;
+  private readonly SUSPICIOUS_SCORE_THRESHOLD: number = 0.75;
 
   // ----- Data Structures -----
-  interface PlayerAimbotData {
-    mouseHistory: {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      ax: number;
-      ay: number;
-      angularVelocity: number;
-      timestamp: number;
-    }[];
-    lastTimestamp: number;
-    x: number;
-    y: number;
-    velocityX: number;
-    velocityY: number;
-    reactionTimes: number[];
-    smoothingScore: number;
-    snapScore: number;
-    reactionScore: number;
-    trajectoryScore: number;
-    isSuspicious: boolean;
-  }
-
-  const playerAimbotData: { [playerId: string]: PlayerAimbotData } = {};
+  private playerAimbotData: { [playerId: string]: PlayerAimbotData } = {};
 
   // ----- Utility Functions -----
-  function now(): number {
+  private now(): number {
     return performance.now();
   }
 
-  function calculateDistance(
+  private calculateDistance(
     x1: number,
     y1: number,
     x2: number,
@@ -55,7 +31,7 @@
   }
 
   // ----- Core Aim Analysis Functions -----
-  function analyzeSmoothing(playerData: PlayerAimbotData): number {
+  private analyzeSmoothing(playerData: PlayerAimbotData): number {
     const accelerationsX: number[] = playerData.mouseHistory.map((m) => m.ax);
     const accelerationsY: number[] = playerData.mouseHistory.map((m) => m.ay);
 
@@ -63,36 +39,44 @@
       return 0;
     }
 
-    const stdDevX: number = standardDeviation(accelerationsX);
-    const stdDevY: number = standardDeviation(accelerationsY);
+    const stdDevX: number = this.standardDeviation(accelerationsX);
+    const stdDevY: number = this.standardDeviation(accelerationsY);
     playerData.smoothingScore =
-      1 - normalizeValue((stdDevX + stdDevY) / 2, 0, JERK_THRESHOLD);
+      1 -
+      this.normalizeValue(
+        (stdDevX + stdDevY) / 2,
+        0,
+        this.JERK_THRESHOLD,
+      );
 
     return playerData.smoothingScore;
   }
 
-  function analyzeTargetLock(playerData: PlayerAimbotData): number {
+  private analyzeTargetLock(playerData: PlayerAimbotData): number {
     let snaps: number = 0;
     for (let i: number = 1; i < playerData.mouseHistory.length; i++) {
       // Filter out movements within the flick time window
-      if (now() - playerData.mouseHistory[i].timestamp < FLICK_TIME_WINDOW) {
+      if (
+        this.now() - playerData.mouseHistory[i].timestamp <
+        this.FLICK_TIME_WINDOW
+      ) {
         continue;
       }
 
       const angularVelocity: number = Math.abs(
         playerData.mouseHistory[i].angularVelocity,
       );
-      if (angularVelocity > SNAP_THRESHOLD) {
+      if (angularVelocity > this.SNAP_THRESHOLD) {
         snaps++;
       }
     }
 
-    playerData.snapScore = 1 - normalizeValue(snaps, 0, 5);
+    playerData.snapScore = 1 - this.normalizeValue(snaps, 0, 5);
 
     return playerData.snapScore;
   }
 
-  function analyzeReactionTime(playerData: PlayerAimbotData): number {
+  private analyzeReactionTime(playerData: PlayerAimbotData): number {
     if (playerData.reactionTimes.length === 0) {
       return 0;
     }
@@ -102,43 +86,59 @@
       playerData.reactionTimes.length;
 
     // Adjust reaction time for lag compensation
-    const adjustedReactionTime: number = Math.max(0, avgReactionTime - LAG_COMPENSATION_TIME);
-
-    playerData.reactionScore = 1 - normalizeValue(
-      adjustedReactionTime,
+    const adjustedReactionTime: number = Math.max(
       0,
-      REACTION_TIME_THRESHOLD,
+      avgReactionTime - this.LAG_COMPENSATION_TIME,
     );
+
+    playerData.reactionScore =
+      1 -
+      this.normalizeValue(
+        adjustedReactionTime,
+        0,
+        this.REACTION_TIME_THRESHOLD,
+      );
     return playerData.reactionScore;
   }
 
-  function analyzeTrajectory(player: any, mouseX: number, mouseY: number): number {
+  private analyzeTrajectory(
+    player: any,
+    mouseX: number,
+    mouseY: number,
+  ): number {
     const trajectoryData: { targetX: number; targetY: number } | null =
-      getBulletTrajectory(player, LAG_COMPENSATION_TIME);
+      this.getBulletTrajectory(player, this.LAG_COMPENSATION_TIME);
 
     if (!trajectoryData) {
       return 0;
     }
 
     const { targetX, targetY } = trajectoryData;
-    const deviation: number = calculateDistance(mouseX, mouseY, targetX, targetY);
-
-    const trajectoryScore: number = 1 - normalizeValue(
-      deviation,
-      0,
-      TRAJECTORY_DEVIATION_THRESHOLD,
+    const deviation: number = this.calculateDistance(
+      mouseX,
+      mouseY,
+      targetX,
+      targetY,
     );
+
+    const trajectoryScore: number =
+      1 -
+      this.normalizeValue(
+        deviation,
+        0,
+        this.TRAJECTORY_DEVIATION_THRESHOLD,
+      );
 
     return trajectoryScore;
   }
 
   // ----- Main Analysis Function -----
-  function analyzeAim(player: any, x: number, y: number): void {
+  private analyzeAim(player: any, x: number, y: number): void {
     const playerId: string = (player as any).__id;
-    if (!playerAimbotData[playerId]) {
-      playerAimbotData[playerId] = {
+    if (!this.playerAimbotData[playerId]) {
+      this.playerAimbotData[playerId] = {
         mouseHistory: [],
-        lastTimestamp: now(),
+        lastTimestamp: this.now(),
         x: x,
         y: y,
         velocityX: 0,
@@ -152,8 +152,8 @@
       };
     }
 
-    const playerData: PlayerAimbotData = playerAimbotData[playerId];
-    const currentTime: number = now();
+    const playerData: PlayerAimbotData = this.playerAimbotData[playerId];
+    const currentTime: number = this.now();
     const deltaTime: number = (currentTime - playerData.lastTimestamp) / 1000;
 
     const velocityX: number = (x - playerData.x) / deltaTime;
@@ -190,19 +190,19 @@
     playerData.x = x;
     playerData.y = y;
     playerData.lastTimestamp = currentTime;
-    const smoothingScore: number = analyzeSmoothing(playerData);
-    const snapScore: number = analyzeTargetLock(playerData);
-    const reactionScore: number = analyzeReactionTime(playerData);
-    const trajectoryScore: number = analyzeTrajectory(player, x, y);
+    const smoothingScore: number = this.analyzeSmoothing(playerData);
+    const snapScore: number = this.analyzeTargetLock(playerData);
+    const reactionScore: number = this.analyzeReactionTime(playerData);
+    const trajectoryScore: number = this.analyzeTrajectory(player, x, y);
 
     // Weighted Scoring
     const suspiciousScore: number =
-      WEIGHT_SMOOTHING * smoothingScore +
-      WEIGHT_SNAP * snapScore +
-      WEIGHT_REACTION * reactionScore +
-      WEIGHT_TRAJECTORY * trajectoryScore;
+      this.WEIGHT_SMOOTHING * smoothingScore +
+      this.WEIGHT_SNAP * snapScore +
+      this.WEIGHT_REACTION * reactionScore +
+      this.WEIGHT_TRAJECTORY * trajectoryScore;
 
-    playerData.isSuspicious = suspiciousScore > SUSPICIOUS_SCORE_THRESHOLD;
+    playerData.isSuspicious = suspiciousScore > this.SUSPICIOUS_SCORE_THRESHOLD;
 
     if (playerData.isSuspicious) {
       console.warn(
@@ -214,7 +214,7 @@
   }
 
   // ----- Game Specific Data -----
-  function getBulletTrajectory(
+  private getBulletTrajectory(
     player: any,
     lagCompensation: number,
   ): { targetX: number; targetY: number } | null {
@@ -227,7 +227,7 @@
     }
 
     // Adjust timestamp for lag compensation (if needed)
-    const adjustedTime: number = now() - lagCompensation;
+    const adjustedTime: number = this.now() - lagCompensation;
 
     return {
       targetX: (window as any).lastAimPos.clientX,
@@ -238,58 +238,85 @@
   // ----- Event Listeners & Game Integration (Placeholder) -----
   // adapt this to  game's event system
 
-  // Example: Listen for mouse move events
-  window.addEventListener('mousemove', (event: MouseEvent) => {
-    if ((window as any).game && (window as any).game.activePlayer) {
-      const x: number = event.clientX;
-      const y: number = event.clientY;
-      analyzeAim((window as any).game.activePlayer, x, y);
-    }
-  });
-
-  function trackReactionTime(player: any, targetAppearedTime: number): void {
+  private trackReactionTime(player: any, targetAppearedTime: number): void {
     const playerId: string = (player as any).__id;
-    if (!playerAimbotData[playerId]) return;
-    const reactionTime: number = now() - targetAppearedTime;
-    playerAimbotData[playerId].reactionTimes.push(reactionTime);
-    if (playerAimbotData[playerId].reactionTimes.length > 20) {
-      playerAimbotData[playerId].reactionTimes.shift();
+    if (!this.playerAimbotData[playerId]) return;
+    const reactionTime: number = this.now() - targetAppearedTime;
+    this.playerAimbotData[playerId].reactionTimes.push(reactionTime);
+    if (this.playerAimbotData[playerId].reactionTimes.length > 20) {
+      this.playerAimbotData[playerId].reactionTimes.shift();
     }
   }
 
-  function onTargetAppeared(player: any): void {
-    trackReactionTime(player, now());
+  private onTargetAppeared(player: any): void {
+    this.trackReactionTime(player, this.now());
   }
 
-  function resetAimbotDataForPlayer(playerId: string): void {
-    delete playerAimbotData[playerId];
+  private resetAimbotDataForPlayer(playerId: string): void {
+    delete this.playerAimbotData[playerId];
   }
 
   // ----- Helper Functions (Statistical) -----
-  function average(data: number[]): number {
+  private average(data: number[]): number {
     return data.reduce((sum, value) => sum + value, 0) / data.length;
   }
 
-  function standardDeviation(data: number[]): number {
-    const avg: number = average(data);
+  private standardDeviation(data: number[]): number {
+    const avg: number = this.average(data);
     const squareDiffs: number[] = data.map((value) => (value - avg) ** 2);
-    const avgSquareDiff: number = average(squareDiffs);
+    const avgSquareDiff: number = this.average(squareDiffs);
     return Math.sqrt(avgSquareDiff);
   }
 
-  function normalizeValue(value: number, min: number, max: number): number {
+  private normalizeValue(value: number, min: number, max: number): number {
     return Math.max(0, Math.min(1, (value - min) / (max - min)));
   }
 
   // ----- Anti-Cheat Code Starts Here -----
-  function detectAimbotUse(): void {
-    const keys: string[] = Object.keys(playerAimbotData);
+  detectAimbotUse(): void {
+    const keys: string[] = Object.keys(this.playerAimbotData);
     keys.forEach((playerId) => {
-      if (playerAimbotData[playerId].isSuspicious === true) {
+      if (this.playerAimbotData[playerId].isSuspicious === true) {
         console.warn(`Player ${playerId} is highly suspicious of aimbotting!`);
       }
     });
   }
 
-  setInterval(detectAimbotUse, 2000);
-})();
+  init(): void {
+    // Example: Listen for mouse move events
+    window.addEventListener("mousemove", (event: MouseEvent) => {
+      if ((window as any).game && (window as any).game.activePlayer) {
+        const x: number = event.clientX;
+        const y: number = event.clientY;
+        this.analyzeAim((window as any).game.activePlayer, x, y);
+      }
+    });
+    setInterval(this.detectAimbotUse.bind(this), 2000);
+  }
+}
+
+// ----- Data Structures -----
+interface PlayerAimbotData {
+  mouseHistory: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    ax: number;
+    ay: number;
+    angularVelocity: number;
+    timestamp: number;
+  }[];
+  lastTimestamp: number;
+  x: number;
+  y: number;
+  velocityX: number;
+  velocityY: number;
+  reactionTimes: number[];
+  smoothingScore: number;
+  snapScore: number;
+  reactionScore: number;
+  trajectoryScore: number;
+  isSuspicious: boolean;
+}
+
