@@ -1022,6 +1022,8 @@ export class GameMap {
                 dist -= 16;
             } else if (type === "warehouse_complex_01") {
                 dist -= this.shoreInset - 6.5;
+            } else if (type === "warehouse_complex_02") {
+                dist -= this.shoreInset - 6.5;
             } else if (type === "bunker_structure_04") {
                 dist -= 24;
             }
